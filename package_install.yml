@@ -1,0 +1,38 @@
+---
+- name: Install application server packages
+  hosts: app_servers
+  become: true
+
+  vars:
+    packages:
+      - httpd
+      - git
+      - curl
+      - wget
+      - tar
+      - unzip
+
+  tasks:
+
+    - name: Install required packages
+      ansible.builtin.yum:
+        name: "{{ packages }}"
+        state: present
+      tags:
+        - packages
+
+    - name: Verify required packages
+      ansible.builtin.package_facts:
+        manager: rpm
+      tags:
+        - validation
+
+    - name: Validate package installation
+      ansible.builtin.assert:
+        that:
+          - item in ansible_facts.packages
+        fail_msg: "{{ item }} is not installed"
+        success_msg: "{{ item }} is installed"
+      loop: "{{ packages }}"
+      tags:
+        - validation

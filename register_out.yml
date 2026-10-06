@@ -1,0 +1,25 @@
+---
+- name: output and decision making
+  hosts: app_servers
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: check df -h
+      ansible.builtin.shell:
+        cmd: >
+          df -P / | awk 'NR>1 {gsub("%","");print $5}'
+      changed_when: false
+      register: output
+
+    - name: validate output
+      ansible.builtin.assert:
+        that:
+          - output.stdout | int <= 28
+        fail_msg: "/ use is more than 28 %"
+
+    - name: print output
+      ansible.builtin.debug:
+        msg: "{{ output.stdout }} is / usage"
+      when: output.stdout | int < 28
+

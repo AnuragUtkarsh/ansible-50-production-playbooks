@@ -1,0 +1,40 @@
+---
+- name: service handler
+  hosts: app_servers
+  become: yes
+  gather_facts: no
+
+  tasks:
+    - name: install httpd package
+      ansible.builtin.yum:
+        name: httpd
+        state: present
+      tags:
+        - pkginstall
+
+    - name: start and enable the httpd service
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: true
+      tags:
+        - svcstart
+
+    - name: create httpd conf file
+      ansible.builtin.copy:
+        content: |
+          ServerTokens Prod
+          ServerSignature Off
+        dest: /etc/httpd/conf.d/app.conf
+        validate: /usr/bin/httpd -t -f %s
+      tags:
+        - confvalid
+      notify: restart apache service
+   
+  handlers:
+    - name: restart apache service
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
+
+

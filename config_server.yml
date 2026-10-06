@@ -1,0 +1,48 @@
+---
+- name: configure linux server
+  hosts: app_servers
+  become: yes
+  gather_facts: false
+  vars:
+    packages:
+      - vim
+      - curl
+      - wget
+      - chrony
+
+  tasks:
+    - name: install packages
+      ansible.builtin.yum:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ packages }}"
+      tags:
+        - baseline
+
+    - name: start and enable service
+      ansible.builtin.service:
+        name: chronyd
+        state: started
+        enabled: yes
+      tags:
+        - baseline
+
+    - name: configure motd
+      ansible.builtin.copy:
+        dest: /etc/motd
+        content: |
+          Managed by Ansible
+          Environment: Production
+        create: yes
+        mode: '0644'
+      tags:
+        - baseline
+
+    - name: create login msg
+      ansible.builtin.copy:
+        dest: /etc/issue
+        content: "Authorized access only"
+        create: yes
+        mode: '0644'
+      tags:
+        - baseline

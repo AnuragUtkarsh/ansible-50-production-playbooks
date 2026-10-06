@@ -1,0 +1,54 @@
+---
+- name: managing user and group
+  hosts: app_servers
+  gather_facts: false
+  become: yes
+  vars:
+    users:
+      - appuser
+      - deploy
+
+  tasks:
+    - name: creating group
+      ansible.builtin.group:
+        name: appadmin
+        state: present
+      tags:
+        - groupcreate
+
+    - name: add user in sudoers
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers.d/app
+        create: yes
+        state: present
+        regexp: '^%appadmin'
+        line: '%appadmin ALL=(ALL) NOPASSWD: ALL'
+        validate: '/usr/sbin/visudo -cf %s' 
+      tags:
+        - sudoersadd
+
+    - name: creating users
+      ansible.builtin.user:
+        name: "{{ item }}"
+        state: present 
+        group: appadmin
+        shell: /bin/bash
+        create_home: true
+      loop: "{{ users }}"
+      tags:
+        - usercreate
+
+    - name: check if group exists
+      ansible.builtin.getent:
+        database: group
+        key: appadmin
+      tags:
+        - validation
+
+    - name: check if user exist
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ item }}"
+      loop: "{{ users }}"
+      tags:
+        - validation

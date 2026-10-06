@@ -1,0 +1,38 @@
+---
+- name: loop based configuration
+  hosts: app_servers
+  become: yes
+  gather_facts: yes
+  vars:
+    directories:
+      - name: /srv/webapp
+        owner: root
+        group: root
+        mode: '0755'
+      
+      - name: /srv/webapp/config
+        owner: appuser
+        group: appadmin
+        mode: '0750'
+
+      - name: /srv/webapp/log
+        owner: appuser
+        group: appadmin
+        mode: '0770'
+
+      - name: /srv/webapp/backup
+        owner: deploy
+        group: appadmin
+        mode: '0770'
+
+  tasks:
+    - name: create directories
+      ansible.builtin.file:
+        path: "{{ item.name }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop: "{{ directories }}"
+      tags:
+        - loop_config

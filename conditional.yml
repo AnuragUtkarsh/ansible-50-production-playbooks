@@ -1,0 +1,30 @@
+---
+- name: used conditionals
+  hosts: app_servers
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: install a package
+      ansible.builtin.yum:
+        name: vim
+        state: present
+      when: ansible_os_family == "RedHat"
+      tags:
+        - conditional
+
+    - name: create file
+      ansible.builtin.file:
+        path: /opt/myapp/app01.conf
+        state: touch
+      when: ansible_hostname == "mysql01"
+      tags:
+        - conditional
+
+    - name: create new file
+      ansible.builtin.file:
+        path: /opt/myapp/app02.conf
+        state: touch
+      when: ansible_hostname == "mysql02"
+      tags:
+        - conditional

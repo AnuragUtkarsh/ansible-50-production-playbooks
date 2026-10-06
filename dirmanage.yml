@@ -1,0 +1,105 @@
+---
+- name: create directory
+  hosts: app_servers
+  become: yes
+  gather_facts: false
+  vars:
+    app_directories:
+      - path: '/opt/myapp'
+        owner: 'root'
+        group: 'root'
+
+      - path: '/opt/myapp/config'
+        owner: 'root'
+        group: 'appadmin'
+
+      - path: '/opt/myapp/logs'
+        owner: 'appuser'
+        group: 'appadmin'
+
+      - path: '/opt/myapp/data'
+        owner: 'appuser'
+        group: 'appadmin'
+
+      - path: '/opt/myapp/backup'
+        owner: 'deploy'
+        group: 'appadmin'
+
+    app_files:
+      - path: '/opt/myapp/config/app.conf'
+        owner: 'root'
+        group: 'appadmin'
+        content: |
+          APP_NAME=myapp
+          APP_ENV=production
+        mode: '0640'
+
+      - path: '/opt/myapp/config/app.env'
+        owner: 'root'
+        group: 'appadmin'
+        content: ""
+        mode: '0640'
+
+
+  tasks:
+    - name: create directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode | default('0755') }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+      loop: "{{ app_directories }}"
+      tags:
+        - directory
+
+    - name: creating files
+      ansible.builtin.copy:
+        dest: "{{ item.path }}"
+        content: "{{ item.content | default(omit) }}"
+        force: false
+        mode: "{{ item.mode | default('0644') }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+      loop: "{{ app_files }}"
+      tags:
+        - files
+
+    - name: verify directory creation
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+      loop: "{{ app_directories }}"
+      register: directory_check
+      tags:
+        - validation
+
+
+
+    - name: print directory check
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isdir
+        fail_msg: "{{ item.item.path }} does not exist"
+        success_msg: "{{ item.item.path }} exists"
+      loop: "{{ directory_check.results }}"
+      tags:
+        - validation
+
+    - name: verify files creation
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+      loop: "{{ app_files }}"
+      register: file_check
+
+    - name: print file check
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isreg
+        fail_msg: "{{ item.item.path }} does not exist"
+        success_msg: "{{ item.item.path }} exists"
+      loop: "{{ file_check.results }}"
+      tags:
+        - validation
+          
