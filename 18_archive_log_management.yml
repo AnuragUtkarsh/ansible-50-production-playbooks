@@ -1,0 +1,60 @@
+---
+- name: archive log management
+  hosts: localhost
+  become: yes
+  gather_facts: false
+  vars:
+    log_dir: /var/log/myapp
+    archive_dir: /var/log/myapp/archive
+    log_age_days: 7
+    archive_age_days: 30
+
+  tasks:
+    - name: ensure directory exist
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ log_dir }}"
+        - "{{ archive_dir }}"
+      register: dir_status
+
+    - name: create directory
+      ansible.builtin.file:
+        path: "{{ item.item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      when: not item.stat.exists
+      loop: "{{ dir_status.results }}"
+
+    - name: Recursively find  files older than 7 days
+      ansible.builtin.find:
+        paths: "{{ log_dir }}"
+        age: 7d
+        patterns: '*.log'
+        recurse: false
+      register: found_files
+
+    - name: move files to archive
+      ansible.builtin.shell:
+        cmd: "mv {{item.path}} {{ archive_dir }}"
+      loop: "{{ found_files.results }}"
+      when: found_files.matched > 0
+   
+    - name: Recursively find  files older than 30 days
+      ansible.builtin.find:
+        paths: "{{ archive_dir }}"
+        age: 30d
+        patterns: '*.log'
+        recurse: false
+      register: archive_files
+
+    - name: ansible.builtin.shell:
+        cmd: "rm {{ item }}"
+      loop: "{{ archive_files.results }}"
+      when: archive_files.matched > 0
+      changed_when: true
+
+
+   

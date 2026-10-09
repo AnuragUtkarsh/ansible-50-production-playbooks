@@ -1,0 +1,11 @@
+APP_NAME: {{ app_name }}
+APP_ENVIRONMENT: {{ app_environment }}
+{% for i in app_features %}
+ - {{ i }}
+{% endfor %}
+
+{% if app_environment == "Production" %}
+Production Mode
+{% else %}
+Development Mode
+{% endif %}

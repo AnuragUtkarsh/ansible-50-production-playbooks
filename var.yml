@@ -1,0 +1,16 @@
+---
+- name: variable precendence
+  hosts: app_servers
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: create a variable file
+      ansible.builtin.copy:
+        content: |
+          app_environment: {{ app_environment }} 
+          app_port: {{ app_port }}
+        dest: /etc/myapp.conf
+      tags:
+        - variable
+

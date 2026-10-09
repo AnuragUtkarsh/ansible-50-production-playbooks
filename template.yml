@@ -1,0 +1,14 @@
+---
+- name: create config using template
+  hosts: app_servers
+  gather_facts: false
+  become: yes
+
+  tasks:
+    - name: creating config using jinja
+      ansible.builtin.template:
+        src: /opt/ansible-plays/templates/myapp.conf.j2
+        dest: /etc/myapp.conf
+        owner: root
+        group: root
+        mode: '0644' 

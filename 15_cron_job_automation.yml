@@ -1,0 +1,51 @@
+---
+- name: cron job configuration
+  hosts: app_servers
+  become: yes
+  gather_facts: yes
+  vars:
+    backup_user: root
+    backup_dir: /opt/myapp/backup
+    backup_script: /usr/local/bin/myapp_backup.sh
+    cron_hour: 2
+    cron_minute: 30
+
+  tasks:
+    - name: create backup directory
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0750'
+        owner: "{{ backup_user }}"
+        group: "{{ backup_user }}"
+
+    - name: create script
+      ansible.builtin.copy:
+        dest: "{{ backup_script }}"
+        content: |
+          #!/bin/bash
+          cp -avp /etc/myapp.conf "{{ backup_dir }}/myapp.conf"
+        owner: "{{ backup_user }}"
+        group: "{{ backup_user }}"
+        mode: '0750'
+
+    - name: Creates a cron file under /etc/cron.d
+      ansible.builtin.cron:
+        name: create cron for script execution
+        weekday: "*"
+        minute: "{{ cron_minute }}"
+        hour: "{{ cron_hour }}"
+        user: "{{ backup_user }}"
+        job: "{{ backup_script }}"
+
+    - name: validate crontab
+      ansible.builtin.shell:
+        cmd: "crontab -l"
+      register: output
+      changed_when: false
+
+    - name: print output
+      ansible.builtin.debug:
+        var: output.stdout_lines
+
+

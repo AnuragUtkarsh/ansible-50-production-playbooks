@@ -1,0 +1,26 @@
+---
+- name: logroattion validation
+  hosts: localhost
+
+  tasks:
+    - name: copy the template for php
+      ansible.builtin.template:
+        src: templates/myapp.conf.j2
+        dest: /etc/httpd/conf.d/myapp.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart service
+      tags:
+        - config
+
+    - name: deploy application page
+      ansible.builtin.template:
+        src: templates/index.php.j2
+        dest: /var/www/html/myapp/index.php
+        owner: apache
+        group: apache
+        mode: '0644'
+      tags:
+        - config
+

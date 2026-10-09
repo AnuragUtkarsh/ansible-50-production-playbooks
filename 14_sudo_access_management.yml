@@ -1,0 +1,51 @@
+---
+- name: sudo management
+  hosts: app_servers
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: create group
+      ansible.builtin.group:
+        name: appops
+        state: present
+  
+    - name: create user
+      ansible.builtin.user:
+        name: opsuser
+        group: appops
+
+    - name: create file
+      ansible.builtin.file:
+        path: /etc/sudoers.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: create sudo access
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers.d/appops
+        create: yes
+        mode: '0440'
+        regexp: "^%appops"
+        line: "%appops ALL=(ALL) NOPASSWD: ALL"
+        state: present
+        validate: "/usr/sbin/visudo -cf %s"
+      tags:
+        - sudo
+
+    - name: validate group
+      ansible.builtin.getent:
+        database: group
+        key: appops
+      tags: 
+        - validate
+
+    - name: validate user
+      ansible.builtin.getent:
+        database: passwd
+        key: opsuser
+      tags:
+        - validate
+

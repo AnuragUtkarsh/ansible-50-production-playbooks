@@ -1,0 +1,19 @@
+#generated Dynamically by Jinja2 Template
+{{ log_file_path }} {
+     {{ rotation_frequency }}
+     rotate {{ rotation_count }}
+     size {{ max_size | default ('10M') }}
+     {% if compress_logs | default(true) %}
+     compress
+     delaycompress
+     {% endif %}
+     missingok
+     notifempty
+     create {{ file_mode | default(log_mode) }} {{ file_owner | default(log_owner) }} {{ file_group | default(log_group) }}
+     sharedscripts
+     {% if postrotate_script is defined %}
+     postrotate
+         {{ postrotate_script }}
+     endscript
+     {% endif %}
+}

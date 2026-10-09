@@ -1,0 +1,38 @@
+---
+- name: manage user ssh key
+  hosts: app_servers
+  become: yes
+  gather_facts: true
+  vars:
+    deploy_ssh_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDSNK7VplRyoNokOApFqTePFQm2oX6M/NBxIieCN8fK71qWxTEAQjHxBRLiS/BaKZku3srkAJxdg2TiOyx+Tc3r9KxxKNU4NsBICEHFGnX6pYQgabQ0PWApzpSXGHNDcrAUhAdBGwZdTCs3P8Vf462m/zN5PbeE6uoglE3CB/00PGazxPPo1gZNe7PDAXglHmJfs1dcibVOPREwP9Yv+O6qtjUBb7w6L2wtPnulLJfuNdVaf73hLkZCCJo2Bnv351R0swSN5VFjxH1/01OKpFI+ntn9irOHRAAT3lycwQMjHqGrQGUk3sc7K7jvMFq3eUnKab354CoM3rzDX6f2ZoSMWloso3ywm0e+fmmfN32tLmwzZ38Z0BrMellnnQ0lzUiA+km4svkOvdv8g82erIdM499ysA+qEpq+YPgbEZYoJbHsfYEdZhyLHwU4IsR5By4O460W2jYCO2jrn+HyVm/qOeb108vGhJ7dOjRhm76Rfn8InbvuITV51t8FkeJPNhk= root@app02"
+
+  tasks:
+    - name: create user
+      ansible.builtin.user:
+        name: ramu
+        state: present
+        shell: /bin/bash
+        create_home: yes
+
+    - name: create .ssh folder
+      ansible.builtin.file:
+        path: /home/ramu/.ssh
+        state: directory
+        owner: ramu
+        group: ramu
+        mode: '0700'
+
+    - name: add public key
+      ansible.posix.authorized_key:
+        user: ramu
+        state: present
+        key: "{{ deploy_ssh_key }}"
+
+    - name: set authorized_keys file permission to 0600
+      ansible.builtin.file:
+        path: /home/ramu/.ssh/authorized_keys
+        state: file
+        owner: ramu
+        group: ramu
+        mode: '0600'
+

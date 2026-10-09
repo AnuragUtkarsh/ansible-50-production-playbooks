@@ -1,0 +1,71 @@
+---
+- name: handling my services
+  hosts: localhost
+  become: yes
+  gather_facts: no
+  vars:
+    packages:
+      - httpd
+      - php
+      - mariadb-server
+    svc:
+      - httpd
+      - mariadb
+    app_name: MyApp
+    app_environment: Production
+    app_features:
+      - login
+      - Reports
+      - Monitoring
+
+  tasks:
+    - name: install packages
+      ansible.builtin.yum:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ packages }}"
+      tags:
+        - package-setup
+
+    - name: start and enable service
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop: "{{ svc }}"
+
+    - name: create the directory
+      ansible.builtin.file:
+        path: /var/www/html/myapp
+        state: directory
+        owner: apache
+        group: apache
+        mode: '0755'
+
+    - name: copy the template for php
+      ansible.builtin.template:
+        src: templates/myapp.conf.j2
+        dest: /etc/httpd/conf.d/myapp.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart service
+      tags:
+        - config
+
+    - name: deploy application page
+      ansible.builtin.template:
+        src: templates/index.php.j2
+        dest: /var/www/html/myapp/index.php
+        owner: apache
+        group: apache
+        mode: '0644'
+      tags:
+        - config
+
+
+  handlers:
+    - name: restart service
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
