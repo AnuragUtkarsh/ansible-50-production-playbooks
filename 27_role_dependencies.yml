@@ -1,0 +1,8 @@
+---
+- name: configure apache directory
+  hosts: localhost
+  become: yes
+  gather_facts: false
+
+  roles:
+    - app_setup

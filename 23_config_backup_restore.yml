@@ -1,0 +1,57 @@
+---
+- name: config backup restore
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: ensure the backup directory exists
+      ansible.builtin.file:
+        path: /var/backups/httpd
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    - name: check whether file exist or not
+      ansible.builtin.stat:
+        path: /etc/httpd/conf/httpd.conf
+      register: file_check
+
+    - name: print whether exist
+      ansible.builtin.assert:
+        that:
+          - file_check.stat.exists == true
+        fail_msg: "file doesn't exist"
+        success_msg: "File exists"
+   
+    - name: collect checkshum
+      ansible.builtin.debug:
+        var: file_check.stat.checksum
+
+    - name: create backup file
+      ansible.builtin.copy:
+        src: /etc/httpd/conf/httpd.conf
+        dest: "/var/backups/httpd/httpd.conf-{{ ansible_date_time.iso8601_basic_short }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0600'
+      register: backup_result
+
+    - name: Check backup file
+      ansible.builtin.stat:
+        path: "{{ backup_result.dest }}"
+        checksum_algorithm: sha1
+      register: backup_check
+
+    - name: verify checksum
+      ansible.builtin.assert:
+        that:
+          - backup_check.stat.exists
+          - file_check.stat.checksum == backup_check.stat.checksum
+        fail_msg: " checksum fail"
+        success_msg: "Checksum pass"
+
+
+

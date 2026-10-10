@@ -1,0 +1,50 @@
+---
+- name: rolling apache deployment
+  hosts: app_servers
+  become: yes
+  gather_facts: true
+  serial: 1
+
+  tasks:
+    - name: Install apache
+      ansible.builtin.yum:
+        name: httpd
+        state: present
+
+    - name: ensure service running
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: validate apache configuration
+      ansible.builtin.command:
+        cmd: /usr/sbin/httpd -t
+      register: config_check
+      changed_when: false
+      tags:
+        - validate
+
+    - name: Ensure Apache config is valid
+      ansible.builtin.assert:
+        that:
+          - config_check.rc == 0
+        fail_msg: "Apache configuration validation failed"
+        success_msg: "Apache configuration is valid"
+      tags:
+        - validate
+    
+    - name: Trigger Apache restart after successful validation
+      ansible.builtin.command:
+        cmd: /bin/true
+      changed_when: true
+      notify: restart apache
+      tags:
+        - deploy
+
+
+  handlers:
+      - name: restart apache
+        ansible.builtin.service:
+          name: httpd
+          state: restarted

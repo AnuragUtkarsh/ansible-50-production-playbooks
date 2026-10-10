@@ -1,0 +1,8 @@
+---
+- name: create application directory
+  ansible.builtin.file:
+    path: /var/www/html/my_app
+    state: directory
+    owner: apache
+    group: apache
+    mode: '0755'

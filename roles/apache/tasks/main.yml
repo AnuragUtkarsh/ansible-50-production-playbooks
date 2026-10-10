@@ -1,0 +1,28 @@
+- name: install httpd
+  ansible.builtin.yum:
+    name: "{{ apache_package }}"
+    state: present
+  tags:
+    - apache
+
+- name: start and enable service
+  ansible.builtin.service:
+    name: "{{ apache_service }}"
+    state: started
+    enabled: yes
+  tags:
+    - apache
+
+- name: configre configuration of apache
+  ansible.builtin.copy:
+    dest: /etc/httpd/conf.d/security.conf
+    content: |
+      ServerTokens Prod
+      ServerSignature Off
+    owner: root
+    group: root
+    mode: '0644'
+    notify: restart apache
+  tags:
+    - apache
+

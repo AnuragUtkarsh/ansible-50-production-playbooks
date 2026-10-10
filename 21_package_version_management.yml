@@ -1,0 +1,81 @@
+---
+- name: Package Version Management
+  hosts: app_servers
+  become: true
+  gather_facts: false
+
+  vars:
+    pkg_name: httpd
+    pkg_version: "2.4.62-13.el9_8.5"
+
+  tasks:
+    - name: Collect current package version
+      ansible.builtin.command:
+        cmd: "rpm -q {{ pkg_name }}"
+      register: current_version
+      changed_when: false
+      failed_when: false
+      tags:
+        - packages
+
+    - name: Display current package version
+      ansible.builtin.debug:
+        msg: "{{ current_version.stdout | default('Package not installed') }}"
+      tags:
+        - packages
+
+    - name: Check available package versions
+      ansible.builtin.command:
+        cmd: "dnf list --showduplicates {{ pkg_name }}"
+      register: available_version
+      changed_when: false
+      tags:
+        - packages
+        - validate
+
+    - name: Verify desired version is available
+      ansible.builtin.assert:
+        that:
+          - pkg_version in available_version.stdout
+        fail_msg: "Desired version {{ pkg_version }} is not available for {{ pkg_name }}."
+        success_msg: "Desired package version is available."
+      tags:
+        - packages
+        - validate
+
+    - name: Install exact package version
+      ansible.builtin.dnf:
+        name: "{{ pkg_name }}-{{ pkg_version }}"
+        state: present
+      register: package_install
+      tags:
+        - packages
+
+    - name: Collect installed version after installation
+      ansible.builtin.command:
+        cmd: "rpm -q {{ pkg_name }}"
+      register: final_version
+      changed_when: false
+      tags:
+        - validate
+
+    - name: Verify installed package version
+      ansible.builtin.assert:
+        that:
+          - final_version.rc == 0
+          - (pkg_name ~ "-" ~ pkg_version) == final_version.stdout
+        fail_msg: "Installed package version does not match the desired version."
+        success_msg: "Exact package version verified successfully."
+      tags:
+        - validate
+
+    - name: Display package version report
+      ansible.builtin.debug:
+        msg:
+          - "Package: {{ pkg_name }}"
+          - "Previous version: {{ current_version.stdout | default('Not installed') }}"
+          - "Desired version: {{ pkg_version }}"
+          - "Final version: {{ final_version.stdout }}"
+      tags:
+        - packages
+        - validate

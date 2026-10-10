@@ -1,0 +1,54 @@
+---
+- name: gather custom facts
+  hosts: localhost
+  become: yes
+  gather_facts: false
+
+  tasks:
+    - name: create fact directory
+      ansible.builtin.file:
+        path: /etc/ansible/facts.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: create fact file
+      ansible.builtin.copy:
+        dest: /etc/ansible/facts.d/app.fact
+        content: |
+          [application]
+          app_name=myapp
+          app_environment=production
+          app_port=8080
+        owner: root
+        group: root
+        mode: '0644'
+      register: custom_fact_file
+
+    - name: refresh fact
+      ansible.builtin.setup:
+        filter:
+          - ansible_local
+
+    - name: Validate custom application facts
+      ansible.builtin.assert:
+        that:
+          - ansible_local.app.application.app_name == 'myapp'
+          - ansible_local.app.application.app_environment == 'production'
+          - (ansible_local.app.application.app_port | int) == 8080
+        fail_msg: "Custom facts validation failed"
+        success_msg: "All custom facts validated successfully"
+      tags:
+        - facts
+        - validate
+
+    - name: Display custom application facts
+      ansible.builtin.debug:
+        msg:
+          - "Application: {{ ansible_local.app.application.app_name }}"
+          - "Environment: {{ ansible_local.app.application.app_environment }}"
+          - "Port: {{ ansible_local.app.application.app_port }}"
+      tags:
+        - facts`
+

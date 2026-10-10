@@ -1,0 +1,71 @@
+---
+- name: backup restore
+  hosts: localhost
+  become: true
+  gather_facts: true
+  vars:
+    config_path: /etc/httpd/conf/httpd.conf
+    restore_backup_file: /var/backups/httpd/httpd.conf-20261010T131013
+    restore_config: false
+
+  tasks:
+    - name: check if backup file exists
+      ansible.builtin.stat:
+        path: "{{ restore_backup_file }}"
+      register: back_check
+      when: restore_config | bool
+
+    - name: verify backup file exists
+      ansible.builtin.assert:
+        that:
+          - back_check.stat.exists
+        fail_msg: "Selected backup file does not exist"
+        success_msg: "Backup file verified"
+      when: restore_config | bool
+
+    - name: restore backup
+      ansible.builtin.copy:
+        src: "{{ restore_backup_file }}"
+        dest: "{{ config_path }}"
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+        remote_src: true
+      when: restore_config | bool
+      register: restore_result
+
+    - name: Validate Apache configuration
+      ansible.builtin.command:
+        cmd: /usr/sbin/httpd -t
+      register: httpd_validation
+      changed_when: false
+      failed_when: false
+      when: restore_config | bool
+      tags:
+        - validate
+
+    - name: Roll back if Apache configuration is invalid
+      ansible.builtin.copy:
+        src: "{{ restore_result.backup_file }}"
+        dest: "{{ config_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+      when:
+        - restore_config | bool
+        - httpd_validation.rc != 0
+        - restore_result.backup_file is defined
+      register: rollback_result
+      tags:
+        - restore
+
+    - name: Report configuration validation failure
+      ansible.builtin.fail:
+        msg: "Restored configuration is invalid. Rollback was attempted."
+      when:
+        - restore_config | bool
+        - httpd_validation.rc != 0
+      tags:
+        - validate

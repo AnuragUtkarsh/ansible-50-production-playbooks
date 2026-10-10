@@ -1,0 +1,29 @@
+---
+- name: cross host var
+  hosts: app_servers, db_servers
+  become: yes
+  gather_facts: true
+
+- name: read database detail from app server
+  hosts: app_servers
+  become: true
+  gather_facts: false
+
+  vars:
+    db_host: "192.168.198.181"
+
+  tasks:
+    - name: valiidate DB Host Ip is identified
+      ansible.builtin.assert:
+        that:
+          - hostvars[db_host]['ansible_host'] is defined
+        fail_msg: "DB host ansible_host is not defined in inventory"
+
+    - name: Display database hostname and IP
+      ansible.builtin.debug:
+        msg:
+          - "DB hostname: {{ hostvars[db_host]['ansible_facts']['hostname'] }}"
+          - "DB IP: {{ hostvars[db_host]['ansible_host'] }}"
+      tags:
+        - hostvars
+        - validate
