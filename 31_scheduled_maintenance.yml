@@ -1,0 +1,54 @@
+---
+- name: schedule maintenance window
+  hosts: app_servers
+  become: yes
+  gather_facts: true
+  vars:
+    mstart_time: "10:00"
+    mend_time: "12:00"
+
+  tasks:
+    - name: validate downtime
+      ansible.builtin.assert:
+        that:
+          - mstart_time is match('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+          - mend_time is match('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+          - mstart_time < mend_time
+        fail_msg: "Invalid maintenance window configuration"
+        success_msg: "Maintenance window configuration is valid"
+      tags:
+        - validate
+
+    - name: check current time
+      ansible.builtin.command:
+        cmd: date +%H:%M
+      register: current_time
+
+    - name: check whether time match or not
+      ansible.builtin.set_fact:
+        maintenance_active: >-
+          {{
+            current_time.stdout >= mstart_time and
+            current_time.stdout < mend_time
+          }}
+      tags:
+        - validate
+
+    - name: write maintenance log
+      ansible.builtin.lineinfile:
+        path: /var/log/maintenance.log
+        line: "Maintenance executed at {{ current_time.stdout }}"
+        create: true
+        owner: root
+        group: root
+        mode: '0600'
+      when: maintenance_active | bool
+      tags:
+        - maintenance
+
+    - name: report inactive maintenance window
+      ansible.builtin.debug:
+        msg: "Outside maintenance window. Maintenance skipped."
+      when: not (maintenance_active | bool)
+      tags:
+        - maintenance

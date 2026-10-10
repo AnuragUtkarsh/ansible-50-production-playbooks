@@ -1,0 +1,67 @@
+---
+- name: Production prechecks and audit
+  hosts: app_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    min_free_disk_mb: 1024
+    min_memory_mb: 512
+    required_service: httpd
+    audit_report: /var/tmp/production_precheck.txt
+
+  tasks:
+    - name: Check root filesystem free space
+      ansible.builtin.command:
+        cmd: df -Pm /
+      register: disk_output
+      changed_when: false
+      tags:
+        - validate
+
+    - name: Check required service status
+      ansible.builtin.command:
+        cmd: systemctl is-active "{{ required_service }}"
+      register: service_status
+      changed_when: false
+      failed_when: false
+      tags:
+        - validate
+
+    - name: Evaluate production prechecks
+      ansible.builtin.set_fact:
+        disk_free_mb: "{{ disk_output.stdout_lines[1].split()[3] | int }}"
+        service_healthy: "{{ service_status.stdout == 'active' }}"
+      tags:
+        - validate
+
+    - name: Generate precheck audit report
+      ansible.builtin.copy:
+        dest: "{{ audit_report }}"
+        owner: root
+        group: root
+        mode: '0640'
+        content: |
+          Production Precheck Audit
+          Hostname: {{ ansible_facts['hostname'] }}
+          OS Family: {{ ansible_facts['os_family'] }}
+          Total Memory MB: {{ ansible_facts['memtotal_mb'] }}
+          Root Free Disk MB: {{ disk_free_mb }}
+          Required Service: {{ required_service }}
+          Service Status: {{ service_status.stdout | default('unknown') }}
+          Disk Check: {{ 'PASS' if (disk_free_mb | int) >= min_free_disk_mb else 'FAIL' }}
+          Memory Check: {{ 'PASS' if (ansible_facts['memtotal_mb'] | int) >= min_memory_mb else 'FAIL' }}
+          Service Check: {{ 'PASS' if service_healthy else 'FAIL' }}
+      tags:
+        - audit
+
+    - name: Enforce production precheck thresholds
+      ansible.builtin.assert:
+        that:
+          - (disk_free_mb | int) >= min_free_disk_mb
+          - (ansible_facts['memtotal_mb'] | int) >= min_memory_mb
+          - service_healthy | bool
+        fail_msg: "Production prechecks failed. Review {{ audit_report }}"
+        success_msg: "All production prechecks passed"
+      tags:
+        - validate

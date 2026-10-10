@@ -1,0 +1,96 @@
+---
+- name: Application deployment with rollback
+  hosts: app_servers
+  become: true
+  gather_facts: false
+
+  vars:
+    app_dir: /opt/myapp
+    release_version: v2
+    rollback_enabled: true
+    simulate_failure: false
+
+  tasks:
+    - name: Create application release directories
+      ansible.builtin.file:
+        path: "{{ app_dir }}/releases/{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - v1
+        - v2
+
+    - name: Create sample application files
+      ansible.builtin.copy:
+        content: "Application {{ item }} is healthy\n"
+        dest: "{{ app_dir }}/releases/{{ item }}/health.txt"
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - v1
+        - v2
+
+    - name: Set v1 as initial active release
+      ansible.builtin.file:
+        src: "{{ app_dir }}/releases/v1"
+        dest: "{{ app_dir }}/current"
+        state: link
+        force: true
+
+    - name: Capture previous release
+      ansible.builtin.command:
+        cmd: "readlink {{ app_dir }}/current"
+      register: previous_release
+      changed_when: false
+
+    - name: Deploy selected release
+      ansible.builtin.file:
+        src: "{{ app_dir }}/releases/{{ release_version }}"
+        dest: "{{ app_dir }}/current"
+        state: link
+        force: true
+
+    - name: Validate active release
+      block:
+        - name: Check application health file
+          ansible.builtin.stat:
+            path: "{{ app_dir }}/current/health.txt"
+          register: health_check
+
+        - name: Assert application is healthy
+          ansible.builtin.assert:
+            that:
+              - health_check.stat.exists
+              - not (simulate_failure | bool)
+            fail_msg: "Application validation failed"
+            success_msg: "Application validation passed"
+
+      rescue:
+        - name: Roll back to previous release
+          ansible.builtin.file:
+            src: "{{ previous_release.stdout }}"
+            dest: "{{ app_dir }}/current"
+            state: link
+            force: true
+          when: rollback_enabled | bool
+
+        - name: Stop deployment when rollback is disabled
+          ansible.builtin.fail:
+            msg: "Deployment failed and automatic rollback is disabled"
+          when: not (rollback_enabled | bool)
+
+    - name: Display active release
+      ansible.builtin.command:
+        cmd: "readlink {{ app_dir }}/current"
+      register: active_release
+      changed_when: false
+
+    - name: Report deployment result
+      ansible.builtin.debug:
+        msg: "Active release: {{ active_release.stdout }}"
+
+#ansible-playbook -i servers 32_deployment_rollback.yml   -e 'release_version=v2'   -e 'simulate_failure=true' -u root -bk
+#ansible-playbook -i servers 32_deployment_rollback.yml -e 'release_version=v2' -e 'simulate_failure=false' -u root -bk

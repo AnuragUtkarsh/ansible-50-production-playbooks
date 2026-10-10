@@ -1,0 +1,20 @@
+---
+- name: Collect app server details and generate report
+  hosts: db_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: generate current server details
+      ansible.builtin.debug:
+        msg:
+          - "Hostname: {{ ansible_facts['hostname'] }}"
+          - "IP: {{ ansible_host | default(inventory_hostname) }}"
+
+    - name: Write combined report to Control Node
+      ansible.builtin.template:
+        src: templates/report.j2
+        dest: /tmp/app_server_audit.txt
+      delegate_to: localhost
+      run_once: true
+      become: false

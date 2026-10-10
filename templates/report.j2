@@ -1,0 +1,13 @@
+==================================================
+        CENTRAL INFRASTRUCTURE REPORT
+==================================================
+
+Generated on: {{ now(utc=true, fmt='%Y-%m-%d %H:%M:%S UTC') }}
+
+{% for server in groups['app_servers'] %}
+--------------------------------------------------
+SERVER NAME : {{ hostvars[server]['ansible_facts']['hostname'] | default(server) }}
+IP ADDRESS  : {{ hostvars[server]['ansible_host'] | default(server) }}
+OS FAMILY   : {{ hostvars[server]['ansible_facts']['os_family'] | default('N/A') }}
+{% endfor %}
+==================================================

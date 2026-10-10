@@ -1,0 +1,34 @@
+---
+- name: Async task execution and polling
+  hosts: localhost
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Run long-running lab task
+      ansible.builtin.command:
+        cmd: /bin/sleep 25
+      async: 60
+      poll: 5
+      register: async_result
+      changed_when: true
+      tags:
+        - async
+
+    - name: Validate job result
+      ansible.builtin.assert:
+        that:
+          - async_result.rc == 0
+        fail_msg: "Async job failed"
+        success_msg: "Async job completed successfully"
+      tags:
+        - validate
+
+    - name: Display final result
+      ansible.builtin.debug:
+        msg:
+          - "Return code: {{ async_result.rc }}"
+          - "Job completed successfully"
+      tags:
+        - async
+        - validate
